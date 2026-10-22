@@ -1,5 +1,6 @@
 local playerEntity = Player.GetEntity()
-local dbKey = playerEntity.displayName .. '-numberOfBonks'
+local primaryKey = 'numberOfBonks'
+local dbKey = string.format('%s-%s', primaryKey, playerEntity.displayName)
 local cheevocfg = config.Achievement.CHEEVO_SURGE_ONE_TILE
 local numberOfBonks = PersistentDB:GetInt(dbKey) or (cheevocfg.progress == -2 and 1) or 0
 local coords = {x = playerEntity.coordGrid.x, z = playerEntity.coordGrid.z}
@@ -8,7 +9,31 @@ local contentView
 local countBonks = PersistentDB:GetBool('countBonks') ~= false
 local showPopup = PersistentDB:GetBool('showPopup') ~= false
 local popupIcon = PersistentDB:GetBool('popupIcon') ~= false
+local thisRsnCount = PersistentDB:GetBool('popupIcon') ~= false
 local bonkCountText
+local totalBonkCountText
+local totalBonkCount = 0
+local rsnCount = 0
+
+PersistentDB:IterateEntries(function(key, value)
+	local tempBonkCount = 0
+	if key:match('^'..primaryKey) and type(value) == 'number' then
+		tempBonkCount = tempBonkCount + value
+		rsnCount = rsnCount + 1
+	end
+
+	totalBonkCount = totalBonkCount + tempBonkCount
+end)
+
+local function getBonkCountStr()
+	return string.format('Bonk count%s: %s',
+		rsnCount > 1 and ' (this RSN)' or '',
+		numberOfBonks)
+end
+
+local function getTotalBonkCountStr()
+	return formatStr('Bonk count (total): {}', totalBonkCount)
+end
 
 local function displayPopup()
 	if not showPopup then return end
@@ -21,7 +46,7 @@ local function displayPopup()
 	end
 
 	local popup = prettyui.AchievementPopup.show({
-		title = 'I Meant To Do That!',
+		title = 'I Meant To Do That',
 		text = text,
 		item = popupIcon and config.Obj.RUBBER_CHICKEN or nil, -- config.Obj.AGILITY_JUMP
 		parent = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__TASK_COMPLETE_WINDOW),
@@ -48,8 +73,12 @@ Event.Logic.Subscribe("updatePlayerData", function()
 			if justSurged then
 				if countBonks then
 					numberOfBonks = numberOfBonks + 1
+					totalBonkCount = totalBonkCount + 1
 					PersistentDB:SetInt(dbKey, numberOfBonks)
-					bonkCountText.content = formatStr('Bonk count: {}', numberOfBonks)
+					bonkCountText.content = getBonkCountStr()
+					if totalBonkCountText then
+						totalBonkCountText.content = getTotalBonkCountStr()
+					end
 				end
 				displayPopup()
 			end
@@ -78,13 +107,22 @@ Event.ContentLayerReady.Subscribe('plugin-content', function(event)
 
 		local showPopupCheckbox
 		local popupIconCheckbox
+		local thisRsnCountCheckbox
+
+		local bonkCountDisabledStr = 'Bonk counter disabled.'
 
     contentView:AddTitle('I Meant To Do That')
-		local bonkTxt = formatStr('Bonk count: {}', numberOfBonks)
-		if cheevocfg.progress == -2 then
+		local bonkTxt = getBonkCountStr()
+		if cheevocfg.progress ~= -2 then
 			bonkTxt = 'Achievement not unlocked yet!'
 		end
+		if not countBonks then
+			bonkTxt = bonkCountDisabledStr
+		end
     bonkCountText = contentView:AddText(bonkTxt)
+		if rsnCount > 1 then
+			totalBonkCountText = contentView:AddText(getTotalBonkCountStr())
+		end
     contentView:AddDivider({
 			marginTop = -30,
 			marginBottom = -10
@@ -98,6 +136,11 @@ Event.ContentLayerReady.Subscribe('plugin-content', function(event)
 			onChange = function(_, _, _, selected)
 				countBonks = selected
 				PersistentDB:SetBool('countBonks', selected)
+				if selected then
+					bonkCountText.content = getBonkCountStr()
+				else
+					bonkCountText.content = bonkCountDisabledStr
+				end
 			end
 		})
 		countBonksCheckbox:SetOptionTooltip(1, countBonksTooltip)
@@ -127,6 +170,21 @@ Event.ContentLayerReady.Subscribe('plugin-content', function(event)
 		})
 		popupIconCheckbox:SetOptionTooltip(1, popupIconTooltip)
 		popupIconCheckbox:SetDisabled(not showPopup)
+
+		if rsnCount > 1 then
+			local thisRsnCountTooltip = 'Popup shows bonk count for this RSN. When disabled, shows the total bonk count for all your RSNs.'
+			thisRsnCountCheckbox = contentView:AddCheckboxButton({
+				{ text = 'This RSN count', value = 1, selected = thisRsnCount },
+			}, {
+				tooltip = thisRsnCountTooltip,
+				onChange = function(_, _, _, selected)
+					thisRsnCount = selected
+					PersistentDB:SetBool('thisRsnCount', selected)
+				end
+			})
+			thisRsnCountCheckbox:SetOptionTooltip(1, thisRsnCountTooltip)
+			thisRsnCountCheckbox:SetDisabled(not showPopup)
+		end
 
     contentView:AddSimpleButton('Test popup', displayPopup, { tooltip = 'Show a test popup.' })
 end)
