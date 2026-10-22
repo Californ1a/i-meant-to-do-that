@@ -9,7 +9,7 @@ local contentView
 local countBonks = PersistentDB:GetBool('countBonks') ~= false
 local showPopup = PersistentDB:GetBool('showPopup') ~= false
 local popupIcon = PersistentDB:GetBool('popupIcon') ~= false
-local thisRsnCount = PersistentDB:GetBool('popupIcon') ~= false
+local thisRsnCount = PersistentDB:GetBool('thisRsnCount') ~= false
 local bonkCountText
 local totalBonkCountText
 local totalBonkCount = 0
@@ -40,7 +40,10 @@ local function displayPopup()
 	-- Don't show the popup if you've only bonked once (ingame achievement fires)
 	if numberOfBonks <= 1 then return end
 
-	local text = formatStr('You\'ve bonked {} times!', numberOfBonks)
+	local showTotal = rsnCount > 1 and not thisRsnCount
+
+	local text = formatStr('You\'ve bonked {} times!',
+		(showTotal and totalBonkCount) or numberOfBonks)
 	if not countBonks then
 		text = 'Bonk!'
 	end
@@ -197,6 +200,7 @@ function PluginShutdown()
 	PersistentDB:SetBool('countBonks', countBonks)
 	PersistentDB:SetBool('showPopup', showPopup)
 	PersistentDB:SetBool('popupIcon', popupIcon)
+	PersistentDB:SetBool('thisRsnCount', thisRsnCount)
 	Event.ContentLayerReady.Unsubscribe('plugin-content')
 	if contentView then
 			contentView:Destroy()
