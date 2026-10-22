@@ -1,0 +1,9 @@
+{
+	"name": "I Meant To Do That",
+	"version": "0.0.1",
+	"contactEmailAddress": "",
+	"requiredDependencies": {
+		"prettyui": 6398181
+	},
+	"hasRibbonIcon": true
+}
